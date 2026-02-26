@@ -1,7 +1,7 @@
 ---
 name: observability-lgtm
 description: Set up a full local LGTM observability stack (Loki + Grafana + Tempo + Prometheus + Alloy) for FastAPI apps. One Docker Compose, one Python import, unified dashboards.
-homepage: https://github.com/reddinft/openclaw-observability
+homepage: https://github.com/reddinft/skill-observability-lgtm
 metadata:
   {
     "openclaw": { "emoji": "📊", "requires": { "env": [], "tools": ["docker"] } }
