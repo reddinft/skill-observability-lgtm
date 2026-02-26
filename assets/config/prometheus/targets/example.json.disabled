@@ -1,0 +1,10 @@
+[
+  {
+    "targets": ["host.docker.internal:7860"],
+    "labels": {
+      "job": "image-gen-studio",
+      "service": "image-gen-studio",
+      "env": "dev"
+    }
+  }
+]

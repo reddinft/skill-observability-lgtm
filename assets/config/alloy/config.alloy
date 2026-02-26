@@ -1,0 +1,80 @@
+// Grafana Alloy config — log shipping for openclaw native apps
+// Logs are written by apps to /var/log/openclaw/<service>/*.log (JSON format)
+// Alloy tails them and ships to Loki with structured labels.
+
+// ── Loki write endpoint ────────────────────────────────────────────────────
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// ── Discover log files from openclaw apps ─────────────────────────────────
+// Apps write JSON logs to /var/log/openclaw/<service>/<anything>.log
+local.file_match "app_logs" {
+  path_targets = [
+    {
+      __path__ = "/var/log/openclaw/**/*.log",
+      job      = "openclaw_apps",
+    },
+  ]
+  sync_period = "10s"
+}
+
+// ── Tail log files ─────────────────────────────────────────────────────────
+loki.source.file "app_logs" {
+  targets    = local.file_match.app_logs.targets
+  forward_to = [loki.process.parse_json.receiver]
+}
+
+// ── Parse JSON log lines and extract labels ────────────────────────────────
+loki.process "parse_json" {
+  forward_to = [loki.write.default.receiver]
+
+  // Extract service name from the file path: /var/log/openclaw/<service>/...
+  stage.regex {
+    expression = "/var/log/openclaw/(?P<service>[^/]+)/"
+    source     = "filename"
+  }
+  stage.labels {
+    values = {
+      service = "service",
+    }
+  }
+
+  // Parse JSON and promote key fields to labels
+  stage.json {
+    expressions = {
+      level    = "level",
+      service  = "service",
+      logger   = "logger",
+    }
+  }
+  stage.labels {
+    values = {
+      level   = "level",
+      service = "service",
+    }
+  }
+
+  // Drop debug logs to save storage (remove this if you need debug)
+  stage.drop {
+    source              = "level"
+    value               = "DEBUG"
+    drop_counter_reason = "debug_filtered"
+  }
+}
+
+// ── Alloy self-metrics ─────────────────────────────────────────────────────
+prometheus.exporter.self "alloy_metrics" {}
+
+prometheus.scrape "alloy_self" {
+  targets    = prometheus.exporter.self.alloy_metrics.targets
+  forward_to = [prometheus.remote_write.prometheus.receiver]
+}
+
+prometheus.remote_write "prometheus" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}

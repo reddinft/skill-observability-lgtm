@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+config/prometheus/targets/*.json
+!config/prometheus/targets/example.json.disabled
